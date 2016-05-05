@@ -2,24 +2,27 @@ package controllers
 
 import javax.inject._
 
+import com.mohiva.play.silhouette.api.{LogoutEvent, Silhouette}
 import play.api.libs.json.Json
 import play.api.mvc._
+import utils.auth.DefaultEnv
 
-/**
-  * This controller creates an `Action` to handle HTTP requests to the
-  * application's home page.
-  */
+import scala.concurrent.Future
+
 @Singleton
-class HomeController @Inject() extends Controller {
+class HomeController @Inject()(silhouette: Silhouette[DefaultEnv]) extends Controller {
 
-  /**
-    * Create an Action to render an HTML page with a welcome message.
-    * The configuration in the `routes` file means that this method
-    * will be called when the application receives a `GET` request with
-    * a path of `/`.
-    */
   def index = Action {
     Ok(Json.toJson("OK"))
+  }
+
+  def user = silhouette.SecuredAction.async { implicit request =>
+    Future.successful(Ok(Json.toJson(request.identity)))
+  }
+
+  def signOut = silhouette.SecuredAction.async { implicit request =>
+    silhouette.env.eventBus.publish(LogoutEvent(request.identity, request))
+    silhouette.env.authenticatorService.discard(request.authenticator, Ok)
   }
 
 }

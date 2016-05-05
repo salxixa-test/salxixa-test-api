@@ -1,0 +1,3 @@
+invalid.credentials = Invalid credentials!
+invalid.data = Invalid data!
+user.exists = There already exists a user with this email!
