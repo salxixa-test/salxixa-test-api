@@ -7,3 +7,5 @@ cache:
   directories:
     - $HOME/.ivy2
     - $HOME/.sbt
+notifications:
+  email: false

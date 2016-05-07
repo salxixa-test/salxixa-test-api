@@ -6,32 +6,31 @@ import com.mohiva.play.silhouette.api.Authenticator.Implicits._
 import com.mohiva.play.silhouette.api.exceptions.ProviderException
 import com.mohiva.play.silhouette.api.repositories.AuthInfoRepository
 import com.mohiva.play.silhouette.api.util.{Clock, Credentials}
-import com.mohiva.play.silhouette.api.{LoginEvent, Silhouette}
+import com.mohiva.play.silhouette.api.{LoginEvent, LogoutEvent, Silhouette}
 import com.mohiva.play.silhouette.impl.exceptions.IdentityNotFoundException
 import com.mohiva.play.silhouette.impl.providers.CredentialsProvider
 import forms.SignInForm
 import net.ceedubs.ficus.Ficus._
-import play.api.Configuration
 import play.api.i18n.{I18nSupport, Messages, MessagesApi}
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.api.mvc.{Action, Controller}
+import play.api.{Configuration, Logger}
 import service.UserService
 import utils.auth.DefaultEnv
 
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
-class CredentialsAuthController @Inject()(
+class AuthController @Inject()(
   val messagesApi: MessagesApi,
   silhouette: Silhouette[DefaultEnv],
   userService: UserService,
   authInfoRepository: AuthInfoRepository,
   credentialsProvider: CredentialsProvider,
   configuration: Configuration,
-  clock: Clock)
-  extends Controller with I18nSupport {
+  clock: Clock) extends Controller with I18nSupport {
 
   implicit val dataReads = (
     (__ \ 'email).read[String] and
@@ -39,7 +38,7 @@ class CredentialsAuthController @Inject()(
       (__ \ 'rememberMe).read[Boolean]
     ) (SignInForm.Data.apply _)
 
-  def authenticate = Action.async(parse.json) { implicit request =>
+  def login = Action.async(parse.json) { implicit request =>
     request.body.validate[SignInForm.Data].map { data =>
       credentialsProvider.authenticate(Credentials(data.email, data.password)).flatMap { loginInfo =>
         userService.retrieve(loginInfo).flatMap {
@@ -64,6 +63,18 @@ class CredentialsAuthController @Inject()(
       }
     }.recoverTotal {
       case error => Future.successful(Unauthorized(Json.obj("message" -> Messages("invalid.credentials"))))
+    }
+  }
+
+  def logout = silhouette.SecuredAction.async { implicit request =>
+    silhouette.env.eventBus.publish(LogoutEvent(request.identity, request))
+    silhouette.env.authenticatorService.discard(request.authenticator, Ok)
+  }
+
+  def isAuthenticated = silhouette.UserAwareAction { implicit request =>
+    request.identity match {
+      case Some(identity) => Ok
+      case None => Unauthorized
     }
   }
 
