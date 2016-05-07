@@ -14,7 +14,7 @@ import com.mohiva.play.silhouette.impl.services.GravatarService
 import com.mohiva.play.silhouette.impl.util._
 import com.mohiva.play.silhouette.password.BCryptPasswordHasher
 import com.mohiva.play.silhouette.persistence.daos.DelegableAuthInfoDAO
-import com.mohiva.play.silhouette.persistence.repositories.DelegableAuthInfoRepository
+import com.mohiva.play.silhouette.persistence.repositories.{CacheAuthenticatorRepository, DelegableAuthInfoRepository}
 import dao.{PasswordInfoDAO, UserDAO, UserDAOImpl}
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
@@ -32,7 +32,8 @@ import utils.auth.{CustomSecuredErrorHandler, DefaultEnv}
 class SilhouetteModule extends AbstractModule with ScalaModule {
 
   override def configure() {
-    bind[DelegableAuthInfoDAO[PasswordInfo]].to[PasswordInfoDAO].in[Singleton]
+    bind[DelegableAuthInfoDAO[PasswordInfo]].to[PasswordInfoDAO]
+    bind[CacheLayer].to[PlayCacheLayer]
     bind[UserService].to[UserServiceImpl]
     bind[UserDAO].to[UserDAOImpl]
     bind[Silhouette[DefaultEnv]].to[SilhouetteProvider[DefaultEnv]]
@@ -79,11 +80,12 @@ class SilhouetteModule extends AbstractModule with ScalaModule {
   @Provides
   def provideAuthenticatorService(
     idGenerator: IDGenerator,
+    cacheLayer: CacheLayer,
     configuration: Configuration,
     clock: Clock): AuthenticatorService[JWTAuthenticator] = {
 
     val config = configuration.underlying.as[JWTAuthenticatorSettings]("silhouette.authenticator")
-    new JWTAuthenticatorService(config, None, idGenerator, clock)
+    new JWTAuthenticatorService(config, Some(new CacheAuthenticatorRepository[JWTAuthenticator](cacheLayer)), idGenerator, clock)
   }
 
   /**
