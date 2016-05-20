@@ -3,7 +3,7 @@
         "BUILDPACK_URL": "https://github.com/heroku/heroku-buildpack-scala",
         "PLAY_CONF_FILE": "application.prod.conf",
         "PLAY_APP_SECRET": "",
-        "MONGO_URI": "",
+        "MONGODB_URI": "",
         "SILHOUETTE_AUTHENTICATOR_SHARED_SECRET": ""
     }
 }
